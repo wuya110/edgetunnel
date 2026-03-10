@@ -520,6 +520,7 @@ function 解析魏烈思请求(chunk, token) {
     if (!hostname) return { hasError: true, message: `Invalid address: ${addressType}` };
     return { hasError: false, addressType, port, hostname, isUDP, rawIndex: addrValIdx + addrLen, version };
 }
+// MOD 2026-03-10: add direct-connect timeout 500ms
 async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnWrapper, yourUUID) {
     console.log(`[TCP转发] 目标: ${host}:${portNum} | 反代IP: ${反代IP} | 反代兜底: ${启用反代兜底 ? '是' : '否'} | 反代类型: ${启用SOCKS5反代 || 'proxyip'} | 全局: ${启用SOCKS5全局反代 ? '是' : '否'}`);
 
@@ -593,7 +594,10 @@ async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnW
     } else {
         try {
             console.log(`[TCP转发] 尝试直连到: ${host}:${portNum}`);
-            const initialSocket = await connectDirect(host, portNum, rawData);
+            const initialSocket = await Promise.race([
+                connectDirect(host, portNum, rawData),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('直连超时(500ms)')), 500))
+            ]);
             remoteConnWrapper.socket = initialSocket;
             connectStreams(initialSocket, ws, respHeader, connecttoPry);
         } catch (err) {
